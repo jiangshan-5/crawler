@@ -70,3 +70,8 @@ Desktop.ini
 # 个人配置
 config.local.json
 .env
+
+# 开发脚本（仅本地使用）
+build_exe.py
+git_update.bat
+run_universal_crawler.bat
