@@ -32,19 +32,39 @@ echo ✓ 本地提交完成
 echo.
 
 echo [4/4] 推送到 GitHub...
-git push
+git push origin main
 if errorlevel 1 (
     echo.
-    echo 错误：推送失败！
+    echo ❌ 推送失败！
     echo 尝试先拉取远程更新...
-    git pull --rebase
+    git pull origin main --rebase
+    if errorlevel 1 (
+        echo.
+        echo ❌ 拉取失败！可能存在冲突，请手动解决。
+        pause
+        exit /b 1
+    )
     echo 再次推送...
-    git push
+    git push origin main
+    if errorlevel 1 (
+        echo.
+        echo ❌ 推送仍然失败！请检查：
+        echo 1. 网络连接是否正常
+        echo 2. GitHub 凭据是否正确
+        echo 3. 是否有权限推送到该仓库
+        pause
+        exit /b 1
+    )
 )
+
+echo ✓ 推送成功！
 
 echo.
 echo ========================================
 echo    ✓ 更新完成！
 echo ========================================
+echo.
+echo 你的修改已成功推送到 GitHub
+echo 仓库地址: https://github.com/jiangshan-5/crawler
 echo.
 pause
