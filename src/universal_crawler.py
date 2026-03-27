@@ -3,6 +3,7 @@
 """
 通用网页爬虫
 支持用户自定义 URL、CSS 选择器、爬取数量等
+支持高级模式（反反爬虫）
 """
 
 import requests
@@ -15,6 +16,12 @@ from datetime import datetime
 from urllib.parse import urljoin, urlparse
 import csv
 
+# 导入高级爬虫模块
+try:
+    from .advanced_crawler import AdvancedCrawler, is_advanced_mode_available
+except ImportError:
+    from advanced_crawler import AdvancedCrawler, is_advanced_mode_available
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -26,16 +33,21 @@ logger = logging.getLogger(__name__)
 class UniversalCrawler:
     """通用网页爬虫"""
     
-    def __init__(self, base_url, output_dir='data/crawled_data'):
+    def __init__(self, base_url, output_dir='data/crawled_data', use_advanced_mode=False):
         """
         初始化爬虫
         
         Args:
             base_url: 目标网站的基础 URL
             output_dir: 数据保存目录
+            use_advanced_mode: 是否使用高级模式（反反爬虫）
         """
         self.base_url = base_url
         self.output_dir = output_dir
+        self.use_advanced_mode = use_advanced_mode
+        self.advanced_crawler = None
+        
+        # 标准模式的session
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -53,6 +65,15 @@ class UniversalCrawler:
             'failed_pages': 0,
             'total_items': 0
         }
+        
+        # 初始化高级模式
+        if self.use_advanced_mode:
+            if not is_advanced_mode_available():
+                logger.warning("高级模式不可用，将使用标准模式")
+                self.use_advanced_mode = False
+            else:
+                logger.info("已启用高级模式（反反爬虫）")
+                self.advanced_crawler = AdvancedCrawler(headless=True)
     
     def fetch_page(self, url, timeout=10):
         """
@@ -66,6 +87,16 @@ class UniversalCrawler:
             BeautifulSoup 对象，失败返回 None
         """
         try:
+            # 使用高级模式
+            if self.use_advanced_mode and self.advanced_crawler:
+                soup = self.advanced_crawler.fetch_page(url, wait_time=3, timeout=timeout)
+                if soup:
+                    self.stats['success_pages'] += 1
+                else:
+                    self.stats['failed_pages'] += 1
+                return soup
+            
+            # 使用标准模式
             logger.info(f"正在获取: {url}")
             response = self.session.get(url, timeout=timeout)
             response.raise_for_status()
@@ -338,6 +369,16 @@ class UniversalCrawler:
             'failed_pages': 0,
             'total_items': 0
         }
+    
+    def close(self):
+        """关闭爬虫，释放资源"""
+        if self.advanced_crawler:
+            self.advanced_crawler.close()
+            self.advanced_crawler = None
+    
+    def __del__(self):
+        """析构函数"""
+        self.close()
 
 
 def main():

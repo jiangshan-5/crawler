@@ -44,7 +44,7 @@ class UniversalCrawlerGUI:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("🕷️ 通用网页爬虫工具 v2.0")
+        self.root.title("🕷️ 通用网页爬虫工具 v2.0.1")
         self.root.geometry("1300x750")
         
         # 设置最小窗口大小
@@ -181,14 +181,49 @@ class UniversalCrawlerGUI:
         url_frame.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         url_frame.columnconfigure(0, weight=1)
         
-        ttk.Label(url_frame, text="目标 URL:", font=("Microsoft YaHei UI", 9)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        # 快速模板选择
+        ttk.Label(url_frame, text="🎯 快速模板 (可选):", font=("Microsoft YaHei UI", 9)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        
+        template_select_frame = ttk.Frame(url_frame)
+        template_select_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        template_select_frame.columnconfigure(0, weight=1)
+        
+        # 导入模板
+        try:
+            from website_templates import get_all_templates
+            self.templates = get_all_templates()
+            template_options = ['不使用模板'] + [f"{t['name']}" for t in self.templates.values()]
+        except:
+            self.templates = {}
+            template_options = ['不使用模板']
+        
+        self.template_var = tk.StringVar(value='不使用模板')
+        template_combo = ttk.Combobox(
+            template_select_frame,
+            textvariable=self.template_var,
+            values=template_options,
+            state='readonly',
+            font=("Microsoft YaHei UI", 9)
+        )
+        template_combo.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        template_combo.bind('<<ComboboxSelected>>', self.on_template_selected)
+        
+        ttk.Button(
+            template_select_frame,
+            text="📋 应用",
+            command=self.apply_template,
+            style="Secondary.TButton",
+            width=8
+        ).grid(row=0, column=1)
+        
+        ttk.Label(url_frame, text="目标 URL:", font=("Microsoft YaHei UI", 9)).grid(row=2, column=0, sticky="w", pady=(0, 5))
         self.url_entry = ttk.Entry(url_frame, font=("Consolas", 10))
-        self.url_entry.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        self.url_entry.grid(row=3, column=0, sticky="ew", pady=(0, 10))
         self.url_entry.insert(0, "https://example.com")
         
         # 爬取模式 - 使用更现代的布局
         mode_frame = ttk.Frame(url_frame)
-        mode_frame.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        mode_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
         
         ttk.Label(mode_frame, text="爬取模式:", font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT, padx=(0, 15))
         self.mode_var = tk.StringVar(value='list')
@@ -206,9 +241,9 @@ class UniversalCrawlerGUI:
         ).pack(side=tk.LEFT)
         
         # 列表选择器
-        ttk.Label(url_frame, text="列表容器选择器:", font=("Microsoft YaHei UI", 9)).grid(row=3, column=0, sticky="w", pady=(0, 5))
+        ttk.Label(url_frame, text="列表容器选择器:", font=("Microsoft YaHei UI", 9)).grid(row=5, column=0, sticky="w", pady=(0, 5))
         self.list_selector_entry = ttk.Entry(url_frame, font=("Consolas", 10))
-        self.list_selector_entry.grid(row=4, column=0, sticky="ew")
+        self.list_selector_entry.grid(row=6, column=0, sticky="ew")
         self.list_selector_entry.insert(0, "div.item")
         
         # 字段选择器配置 (row 1) - 可扩展
@@ -322,9 +357,34 @@ class UniversalCrawlerGUI:
         delay_spinbox.pack(side=tk.LEFT, padx=(0, 5))
         ttk.Label(delay_frame, text="秒", font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
         
+        # 高级模式选项
+        advanced_frame = ttk.Frame(control_frame)
+        advanced_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        
+        self.advanced_mode_var = tk.BooleanVar(value=False)
+        advanced_check = ttk.Checkbutton(
+            advanced_frame,
+            text="🛡️ 高级模式（绕过反爬虫，支持JS渲染）",
+            variable=self.advanced_mode_var,
+            command=self.on_advanced_mode_toggle
+        )
+        advanced_check.pack(side=tk.LEFT)
+        
+        # 高级模式提示标签
+        self.advanced_tip_label = ttk.Label(
+            advanced_frame,
+            text="",
+            font=("Microsoft YaHei UI", 8),
+            foreground=self.SECONDARY_COLOR
+        )
+        self.advanced_tip_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # 检查高级模式是否可用
+        self.check_advanced_mode_availability()
+        
         # 保存格式
         format_frame = ttk.Frame(control_frame)
-        format_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        format_frame.grid(row=3, column=0, sticky="ew", pady=(0, 8))
         
         ttk.Label(format_frame, text="保存格式:", font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT, padx=(0, 15))
         self.format_var = tk.StringVar(value='json')
@@ -342,10 +402,10 @@ class UniversalCrawlerGUI:
         ).pack(side=tk.LEFT)
         
         # 输出目录
-        ttk.Label(control_frame, text="保存位置:", font=("Microsoft YaHei UI", 9)).grid(row=3, column=0, sticky="w", pady=(0, 5))
+        ttk.Label(control_frame, text="保存位置:", font=("Microsoft YaHei UI", 9)).grid(row=4, column=0, sticky="w", pady=(0, 5))
         
         output_entry_frame = ttk.Frame(control_frame)
-        output_entry_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        output_entry_frame.grid(row=5, column=0, sticky="ew", pady=(0, 10))
         output_entry_frame.columnconfigure(0, weight=1)
         
         self.output_var = tk.StringVar(value="data/crawled_data")
@@ -363,7 +423,7 @@ class UniversalCrawlerGUI:
         
         # 操作按钮 - 使用主按钮样式
         button_frame = ttk.Frame(control_frame)
-        button_frame.grid(row=5, column=0, sticky="ew")
+        button_frame.grid(row=6, column=0, sticky="ew")
         button_frame.columnconfigure(0, weight=1)
         button_frame.columnconfigure(1, weight=1)
         
@@ -579,6 +639,58 @@ class UniversalCrawlerGUI:
         
         messagebox.showinfo("提示", "已加载示例选择器，请根据实际网页修改！")
     
+    def on_template_selected(self, event):
+        """模板选择事件"""
+        # 当用户选择模板时，不自动应用，等待用户点击"应用"按钮
+        pass
+    
+    def apply_template(self):
+        """应用选中的模板"""
+        selected = self.template_var.get()
+        
+        if selected == '不使用模板':
+            return
+        
+        # 查找对应的模板
+        template = None
+        for t in self.templates.values():
+            if t['name'] == selected:
+                template = t
+                break
+        
+        if not template:
+            messagebox.showwarning("警告", "未找到模板！")
+            return
+        
+        # 应用模板配置
+        # 1. 设置示例URL
+        self.url_entry.delete(0, tk.END)
+        self.url_entry.insert(0, template['example_url'])
+        
+        # 2. 设置列表选择器
+        self.list_selector_entry.delete(0, tk.END)
+        self.list_selector_entry.insert(0, template['list_selector'])
+        
+        # 3. 清空并设置字段选择器
+        for item in self.selector_tree.get_children():
+            self.selector_tree.delete(item)
+        
+        for field_name, selector in template['fields'].items():
+            self.selector_tree.insert('', tk.END, values=(field_name, selector, f'来自{template["name"]}模板'))
+        
+        # 4. 记录日志
+        self.log(f"✅ 已应用模板: {template['name']}", "SUCCESS")
+        self.log(f"📋 已配置 {len(template['fields'])} 个字段", "INFO")
+        
+        messagebox.showinfo(
+            "模板已应用",
+            f"已应用 {template['name']} 模板！\n\n"
+            f"✅ URL: {template['example_url']}\n"
+            f"✅ 列表选择器: {template['list_selector']}\n"
+            f"✅ 字段数量: {len(template['fields'])}\n\n"
+            f"你可以直接点击【开始爬取】，或根据需要修改配置。"
+        )
+    
     def browse_output_dir(self):
         """浏览输出目录"""
         directory = filedialog.askdirectory(
@@ -587,6 +699,182 @@ class UniversalCrawlerGUI:
         )
         if directory:
             self.output_var.set(directory)
+    
+    def check_advanced_mode_availability(self):
+        """检查高级模式是否可用"""
+        try:
+            from advanced_crawler import is_advanced_mode_available
+            
+            if is_advanced_mode_available():
+                self.advanced_tip_label.config(
+                    text="✓ 可用",
+                    foreground="green"
+                )
+            else:
+                self.advanced_tip_label.config(
+                    text="✗ 需要安装: pip install undetected-chromedriver",
+                    foreground="red"
+                )
+                self.advanced_mode_var.set(False)
+        except Exception as e:
+            self.advanced_tip_label.config(
+                text="✗ 不可用",
+                foreground="red"
+            )
+            self.advanced_mode_var.set(False)
+    
+    def on_advanced_mode_toggle(self):
+        """高级模式切换事件"""
+        if self.advanced_mode_var.get():
+            try:
+                from advanced_crawler import is_advanced_mode_available
+                
+                if not is_advanced_mode_available():
+                    # 询问用户是否自动安装
+                    result = messagebox.askyesnocancel(
+                        "高级模式不可用",
+                        "高级模式需要安装 undetected-chromedriver\n\n"
+                        "是否现在自动安装？\n\n"
+                        "点击【是】- 自动安装（推荐）\n"
+                        "点击【否】- 手动安装\n"
+                        "点击【取消】- 取消启用"
+                    )
+                    
+                    if result is True:
+                        # 用户选择自动安装
+                        self.auto_install_advanced_mode()
+                    elif result is False:
+                        # 用户选择手动安装
+                        messagebox.showinfo(
+                            "手动安装说明",
+                            "请在命令行运行:\n\n"
+                            "pip install setuptools\n"
+                            "pip install undetected-chromedriver\n\n"
+                            "安装完成后重启程序即可使用。"
+                        )
+                        self.advanced_mode_var.set(False)
+                    else:
+                        # 用户取消
+                        self.advanced_mode_var.set(False)
+                    return
+                
+                self.log("✓ 已启用高级模式（反反爬虫）", "INFO")
+                self.log("注意：高级模式会启动浏览器，速度较慢但能绕过反爬虫", "INFO")
+            except Exception as e:
+                messagebox.showerror("错误", f"启用高级模式失败: {e}")
+                self.advanced_mode_var.set(False)
+        else:
+            self.log("已切换到标准模式", "INFO")
+    
+    def auto_install_advanced_mode(self):
+        """自动安装高级模式依赖"""
+        self.log("=" * 50, "INFO")
+        self.log("开始自动安装高级模式依赖...", "INFO")
+        self.log("=" * 50, "INFO")
+        
+        # 禁用按钮
+        self.start_btn.config(state=tk.DISABLED)
+        self.advanced_mode_var.set(False)  # 暂时取消勾选
+        
+        # 在后台线程中安装
+        thread = threading.Thread(target=self._install_dependency)
+        thread.daemon = True
+        thread.start()
+    
+    def _install_dependency(self):
+        """在后台线程中安装依赖"""
+        import subprocess
+        
+        try:
+            self.log("正在安装高级模式依赖...", "INFO")
+            self.log("这可能需要几分钟，请耐心等待", "INFO")
+            
+            # 先安装 setuptools（Python 3.12+ 需要）
+            self.log("步骤 1/2: 安装 setuptools...", "INFO")
+            process1 = subprocess.Popen(
+                [sys.executable, '-m', 'pip', 'install', 'setuptools'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # 实时输出日志
+            for line in process1.stdout:
+                line = line.strip()
+                if line:
+                    self.log(f"  {line}", "INFO")
+            
+            # 等待完成
+            return_code1 = process1.wait()
+            
+            if return_code1 != 0:
+                stderr1 = process1.stderr.read()
+                self.log(f"setuptools 安装失败: {stderr1}", "WARNING")
+                # 继续尝试安装 undetected-chromedriver
+            else:
+                self.log("✓ setuptools 安装成功", "SUCCESS")
+            
+            # 安装 undetected-chromedriver
+            self.log("步骤 2/2: 安装 undetected-chromedriver...", "INFO")
+            process2 = subprocess.Popen(
+                [sys.executable, '-m', 'pip', 'install', 'undetected-chromedriver'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # 实时输出日志
+            for line in process2.stdout:
+                line = line.strip()
+                if line:
+                    self.log(f"  {line}", "INFO")
+            
+            # 等待完成
+            return_code2 = process2.wait()
+            
+            if return_code2 == 0:
+                self.log("=" * 50, "SUCCESS")
+                self.log("✓ 安装成功！", "SUCCESS")
+                self.log("=" * 50, "SUCCESS")
+                
+                # 提示用户重启
+                self.root.after(0, lambda: messagebox.showinfo(
+                    "安装成功",
+                    "高级模式依赖安装成功！\n\n"
+                    "请重启爬虫工具以使用高级模式。\n\n"
+                    "重启后勾选'高级模式'即可使用。"
+                ))
+                
+                self.log("请重启程序以使用高级模式", "INFO")
+            else:
+                # 获取错误信息
+                stderr2 = process2.stderr.read()
+                self.log("=" * 50, "ERROR")
+                self.log("✗ 安装失败", "ERROR")
+                self.log(f"错误信息: {stderr2}", "ERROR")
+                self.log("=" * 50, "ERROR")
+                
+                self.root.after(0, lambda: messagebox.showerror(
+                    "安装失败",
+                    f"自动安装失败，请手动安装:\n\n"
+                    f"pip install setuptools\n"
+                    f"pip install undetected-chromedriver\n\n"
+                    f"错误信息:\n{stderr2[:200]}"
+                ))
+        
+        except Exception as e:
+            self.log(f"✗ 安装过程出错: {e}", "ERROR")
+            self.root.after(0, lambda: messagebox.showerror(
+                "安装错误",
+                f"自动安装出错:\n{e}\n\n"
+                "请手动安装:\n"
+                "pip install setuptools\n"
+                "pip install undetected-chromedriver"
+            ))
+        
+        finally:
+            # 恢复按钮状态
+            self.root.after(0, lambda: self.start_btn.config(state=tk.NORMAL))
     
     def log(self, message, level="INFO"):
         """添加日志"""
@@ -667,15 +955,20 @@ class UniversalCrawlerGUI:
     def run_crawler(self, url, selectors):
         """运行爬虫（在后台线程中）"""
         try:
+            # 获取高级模式设置
+            use_advanced = self.advanced_mode_var.get()
+            
             self.log(f"开始爬取: {url}", "INFO")
             self.log(f"爬取模式: {'列表页面' if self.mode_var.get() == 'list' else '单个页面'}", "INFO")
+            self.log(f"引擎模式: {'高级模式（反反爬虫）' if use_advanced else '标准模式'}", "INFO")
             self.log(f"字段数量: {len(selectors)}", "INFO")
             self.log("-" * 50, "INFO")
             
             # 创建爬虫实例
             crawler = UniversalCrawler(
                 base_url=url,
-                output_dir=self.output_var.get()
+                output_dir=self.output_var.get(),
+                use_advanced_mode=use_advanced
             )
             
             # 根据模式爬取
@@ -751,6 +1044,9 @@ class UniversalCrawlerGUI:
             self.log(f"  成功: {stats['success_pages']}", "INFO")
             self.log(f"  失败: {stats['failed_pages']}", "INFO")
             self.log(f"  总数据条数: {stats['total_items']}", "INFO")
+            
+            # 关闭爬虫，释放资源
+            crawler.close()
             
         except Exception as e:
             self.log(f"爬取失败: {e}", "ERROR")
