@@ -75,3 +75,6 @@ config.local.json
 build_exe.py
 git_update.bat
 run_universal_crawler.bat
+.env.example
+git_init.bat
+run_gui.bat
