@@ -253,8 +253,8 @@ MIT License
 
 ## 📮 联系方式
 
-- GitHub: [你的 GitHub]
-- Email: [你的邮箱]
+- GitHub: [https://github.com/jiangshan-5]
+- Email: [2874504001@qq.com]
 
 ---
 
