@@ -8,6 +8,7 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
+import queue
 import os
 import sys
 from datetime import datetime
@@ -15,7 +16,7 @@ import json
 
 # 导入爬虫模块
 try:
-    from universal_crawler import UniversalCrawler
+    from universal_crawler_v2 import UniversalCrawlerV2 as UniversalCrawler
 except ImportError:
     import importlib.util
     
@@ -26,8 +27,16 @@ except ImportError:
         return module
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    UniversalCrawler = load_module('universal_crawler', 
-                                   os.path.join(base_dir, 'universal_crawler.py')).UniversalCrawler
+    try:
+        UniversalCrawler = load_module(
+            'universal_crawler_v2',
+            os.path.join(base_dir, 'universal_crawler_v2.py')
+        ).UniversalCrawlerV2
+    except Exception:
+        UniversalCrawler = load_module(
+            'universal_crawler',
+            os.path.join(base_dir, 'universal_crawler.py')
+        ).UniversalCrawler
 
 
 class UniversalCrawlerGUI:
@@ -61,12 +70,14 @@ class UniversalCrawlerGUI:
         self.is_crawling = False
         self.crawler = None
         self.selectors = []  # 选择器列表
+        self.ui_queue = queue.Queue()
         
         # 配置样式
         self.setup_styles()
         
         # 创建界面
         self.create_widgets()
+        self.root.after(50, self.process_ui_queue)
     
     def setup_styles(self):
         """配置自定义样式"""
@@ -876,31 +887,53 @@ class UniversalCrawlerGUI:
             # 恢复按钮状态
             self.root.after(0, lambda: self.start_btn.config(state=tk.NORMAL))
     
-    def log(self, message, level="INFO"):
-        """添加日志"""
+    def process_ui_queue(self):
+        """在主线程中处理后台线程投递的 UI 事件"""
+        try:
+            while True:
+                callback, args, kwargs = self.ui_queue.get_nowait()
+                callback(*args, **kwargs)
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(50, self.process_ui_queue)
+
+    def _run_on_ui_thread(self, callback, *args, **kwargs):
+        """后台线程通过队列派发 UI 更新，避免跨线程调用 Tk"""
+        self.ui_queue.put((callback, args, kwargs))
+
+    def _append_log(self, message, level="INFO"):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
+
         colors = {
             "INFO": "#4ec9b0",
             "SUCCESS": "#4ec9b0",
             "WARNING": "#dcdcaa",
             "ERROR": "#f48771"
         }
-        
+
         color = colors.get(level, "#d4d4d4")
-        
+
         self.log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
         self.log_text.insert(tk.END, f"[{level}] ", level)
         self.log_text.insert(tk.END, f"{message}\n")
-        
         self.log_text.tag_config("timestamp", foreground="#808080")
         self.log_text.tag_config(level, foreground=color)
-        
         self.log_text.see(tk.END)
-        self.root.update()
+
+    def log(self, message, level="INFO"):
+        """添加日志"""
+        if threading.current_thread() is threading.main_thread():
+            self._append_log(message, level)
+        else:
+            self._run_on_ui_thread(self._append_log, message, level)
     
     def preview_data(self, data):
         """预览数据"""
+        if threading.current_thread() is not threading.main_thread():
+            self._run_on_ui_thread(self.preview_data, data)
+            return
+
         self.preview_text.delete('1.0', tk.END)
         
         if isinstance(data, list):
@@ -944,37 +977,63 @@ class UniversalCrawlerGUI:
         self.log_text.delete('1.0', tk.END)
         self.preview_text.delete('1.0', tk.END)
         
+        crawl_config = {
+            "mode": self.mode_var.get(),
+            "use_advanced": self.advanced_mode_var.get(),
+            "list_selector": self.list_selector_entry.get().strip(),
+            "limit": self.limit_var.get(),
+            "delay": self.delay_var.get(),
+            "output_dir": self.output_var.get(),
+            "format": self.format_var.get()
+        }
+
         # 在新线程中运行爬虫
         thread = threading.Thread(
             target=self.run_crawler,
-            args=(url, selectors)
+            args=(url, selectors, crawl_config)
         )
         thread.daemon = True
         thread.start()
     
-    def run_crawler(self, url, selectors):
-        """运行爬虫（在后台线程中）"""
+    def _create_crawler(self, url, crawl_config):
+        """优先按 V2 参数创建爬虫，兼容旧版构造函数。"""
+        delay = crawl_config["delay"]
+        requests_per_second = 2 if delay <= 0 else max(0.2, 1.0 / delay)
+
         try:
-            # 获取高级模式设置
-            use_advanced = self.advanced_mode_var.get()
-            
+            return UniversalCrawler(
+                base_url=url,
+                output_dir=crawl_config["output_dir"],
+                use_advanced_mode=crawl_config["use_advanced"],
+                requests_per_second=requests_per_second,
+                max_retries=3
+            )
+        except TypeError:
+            return UniversalCrawler(
+                base_url=url,
+                output_dir=crawl_config["output_dir"],
+                use_advanced_mode=crawl_config["use_advanced"]
+            )
+
+    def run_crawler(self, url, selectors, crawl_config):
+        """运行爬虫（在后台线程中）"""
+        crawler = None
+        try:
             self.log(f"开始爬取: {url}", "INFO")
-            self.log(f"爬取模式: {'列表页面' if self.mode_var.get() == 'list' else '单个页面'}", "INFO")
-            self.log(f"引擎模式: {'高级模式（反反爬虫）' if use_advanced else '标准模式'}", "INFO")
+            self.log(f"爬取模式: {'列表页面' if crawl_config['mode'] == 'list' else '单个页面'}", "INFO")
+            self.log(f"引擎模式: {'高级模式（反反爬虫）' if crawl_config['use_advanced'] else '标准模式'}", "INFO")
             self.log(f"字段数量: {len(selectors)}", "INFO")
+            if crawl_config["use_advanced"] and "flaticon.com" in url:
+                self.log("Flaticon 高级模式将优先使用可见浏览器以提高通过率，请勿关闭浏览器窗口。", "INFO")
             self.log("-" * 50, "INFO")
             
             # 创建爬虫实例
-            crawler = UniversalCrawler(
-                base_url=url,
-                output_dir=self.output_var.get(),
-                use_advanced_mode=use_advanced
-            )
+            crawler = self._create_crawler(url, crawl_config)
             
             # 根据模式爬取
-            if self.mode_var.get() == 'list':
+            if crawl_config["mode"] == 'list':
                 # 列表模式
-                list_selector = self.list_selector_entry.get().strip()
+                list_selector = crawl_config["list_selector"]
                 if not list_selector:
                     self.log("列表容器选择器不能为空！", "ERROR")
                     return
@@ -985,23 +1044,25 @@ class UniversalCrawlerGUI:
                     url,
                     list_selector,
                     selectors,
-                    max_items=self.limit_var.get()
+                    max_items=crawl_config["limit"]
                 )
                 
                 if results:
                     self.log(f"成功提取 {len(results)} 条数据", "SUCCESS")
                     
                     # 预览数据
-                    self.root.after(0, lambda: self.preview_data(results))
+                    self.preview_data(results)
                     
                     # 保存数据
                     filename = f"crawled_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    if self.format_var.get() == 'json':
-                        filepath = crawler.save_to_json(results, filename)
-                    else:
-                        filepath = crawler.save_to_csv(results, filename)
+                    save_result = crawler.save_results(
+                        results,
+                        filename,
+                        preferred_format=crawl_config["format"]
+                    )
+                    filepath = save_result["path"] if save_result else None
                     
-                    if filepath:
+                    if save_result and save_result.get("path"):
                         self.log(f"数据已保存: {filepath}", "SUCCESS")
                         self.root.after(0, lambda: messagebox.showinfo(
                             "完成",
@@ -1009,6 +1070,12 @@ class UniversalCrawlerGUI:
                         ))
                 else:
                     self.log("没有提取到数据", "WARNING")
+                    stats = crawler.get_stats()
+                    if stats.get("last_error_reason") == "flaticon_access_denied":
+                        self.log("Flaticon 返回 Access Denied 页面，当前网络/IP 被站点风控拦截。", "ERROR")
+                        self.log("建议: 更换网络或代理出口后重试，或先改用 Icons8/Iconmonstr。", "WARNING")
+                    elif "flaticon.com" in url and not crawl_config["use_advanced"]:
+                        self.log("Flaticon 在标准模式下常返回 403，建议开启高级模式再试。", "WARNING")
                     self.root.after(0, lambda: messagebox.showwarning(
                         "警告",
                         "没有提取到数据，请检查选择器是否正确"
@@ -1021,11 +1088,16 @@ class UniversalCrawlerGUI:
                     self.log("成功提取数据", "SUCCESS")
                     
                     # 预览数据
-                    self.root.after(0, lambda: self.preview_data(data))
+                    self.preview_data(data)
                     
                     # 保存数据
                     filename = f"crawled_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    filepath = crawler.save_to_json(data, filename)
+                    save_result = crawler.save_results(
+                        data,
+                        filename,
+                        preferred_format=crawl_config["format"]
+                    )
+                    filepath = save_result["path"] if save_result else None
                     
                     if filepath:
                         self.log(f"数据已保存: {filepath}", "SUCCESS")
@@ -1044,15 +1116,20 @@ class UniversalCrawlerGUI:
             self.log(f"  成功: {stats['success_pages']}", "INFO")
             self.log(f"  失败: {stats['failed_pages']}", "INFO")
             self.log(f"  总数据条数: {stats['total_items']}", "INFO")
-            
-            # 关闭爬虫，释放资源
-            crawler.close()
+            if stats.get('success_pages', 0) == 0 and stats.get('failed_pages', 0) > 0:
+                self.log("提示: 页面获取失败，常见原因是代理配置异常或高级模式被拦截。", "WARNING")
+                self.log("建议: 先关闭高级模式重试，或清理系统 HTTP_PROXY/HTTPS_PROXY。", "WARNING")
             
         except Exception as e:
             self.log(f"爬取失败: {e}", "ERROR")
             self.root.after(0, lambda: messagebox.showerror("错误", f"爬取失败:\n{e}"))
         
         finally:
+            if crawler:
+                try:
+                    crawler.close()
+                except Exception:
+                    pass
             self.root.after(0, self.crawling_finished)
     
     def stop_crawling(self):

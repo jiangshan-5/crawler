@@ -53,6 +53,9 @@ pip install -r requirements.txt
 ```
 
 **可选：安装高级模式（反反爬虫）**
+```bash
+pip install -r requirements-advanced.txt
+```
 
 **方式1: 自动安装（推荐）⭐**
 1. 启动工具后勾选"高级模式"

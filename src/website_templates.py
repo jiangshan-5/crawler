@@ -10,11 +10,11 @@ WEBSITE_TEMPLATES = {
     'flaticon': {
         'name': 'Flaticon 图标网站',
         'description': '爬取 Flaticon 的图标信息',
-        'list_selector': '.icon--item',
+        'list_selector': '.icon--item || li:has(a[href*="/free-icon/"]) || a[href*="/free-icon/"]',
         'fields': {
-            '图标图片': 'img.icon--item__img@src',
-            '图标标题': '.icon--item__title',
-            '图标链接': 'a.icon--item__link@href',
+            '图标图片': 'img.icon--item__img@src || img@src || img@data-src',
+            '图标标题': '.icon--item__title || img@alt || @title',
+            '图标链接': 'a.icon--item__link@href || a@href || @href',
         },
         'example_url': 'https://www.flaticon.com/free-icons/weather'
     },

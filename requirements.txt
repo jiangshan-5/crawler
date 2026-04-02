@@ -3,10 +3,6 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
 
-# Advanced Web Scraping (Anti-Bot Bypass)
-setuptools>=65.0.0  # Required for Python 3.12+ (provides distutils compatibility)
-undetected-chromedriver>=3.5.0
-
 # Image Processing
 Pillow>=10.0.0
 

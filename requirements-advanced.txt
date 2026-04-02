@@ -1,0 +1,6 @@
+# Install base dependencies first.
+-r requirements.txt
+
+# Advanced Web Scraping (Anti-Bot Bypass)
+setuptools>=65.0.0
+undetected-chromedriver>=3.5.0

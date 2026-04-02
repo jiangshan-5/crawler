@@ -53,7 +53,7 @@ def test_dynamic_detection():
         print("  - 请运行: pip install setuptools undetected-chromedriver")
     print("=" * 60)
     
-    return result1
+    assert isinstance(result1, bool)
 
 def test_import_performance():
     """测试导入性能"""
