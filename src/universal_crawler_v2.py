@@ -76,6 +76,8 @@ class UniversalCrawlerV2:
         enable_cache=False,
         advanced_user_data_dir=None,
     ):
+        self._closed = False
+        self._stop_requested = False
         self.base_url = base_url
         self.output_dir = output_dir
         self.use_advanced_mode = use_advanced_mode
@@ -465,6 +467,15 @@ class UniversalCrawlerV2:
                 for file_index, record in enumerate(image_records, start=1)
             }
             for future in as_completed(future_map):
+                # Check if stop has been requested
+                if self.is_stop_requested():
+                    logger.info('[crawler] stop requested, halting image downloads')
+                    # Cancel remaining futures
+                    for f in future_map:
+                        if not f.done():
+                            f.cancel()
+                    break
+                
                 try:
                     file_path = future.result()
                     if file_path:
@@ -816,6 +827,11 @@ class UniversalCrawlerV2:
     def crawl_multiple_pages(self, urls, list_selector, item_selectors, max_items=None, delay=1):
         all_results = []
         for url in urls:
+            # Check if stop has been requested
+            if self.is_stop_requested():
+                logger.info('[crawler] stop requested, halting crawl_multiple_pages')
+                break
+            
             if max_items and len(all_results) >= max_items:
                 break
             all_results.extend(self.crawl_list_page(url, list_selector, item_selectors))
@@ -1453,6 +1469,11 @@ class UniversalCrawlerV2:
         sample_payloads = []
         sample_failed = []
         for index, chapter in enumerate(sample_chapters, start=1):
+            # Check if stop has been requested
+            if self.is_stop_requested():
+                logger.info('[crawler] stop requested, halting chapter sampling')
+                return [], chapter_catalog
+            
             _, payload, failed = self._fetch_biquuge_chapter_worker(chapter, index, timeout)
             if payload:
                 sample_payloads.append(payload)
@@ -1468,6 +1489,11 @@ class UniversalCrawlerV2:
                 sample_payloads = []
                 sample_failed = []
                 for index, chapter in enumerate(sample_chapters, start=1):
+                    # Check if stop has been requested
+                    if self.is_stop_requested():
+                        logger.info('[crawler] stop requested, halting chapter re-sampling')
+                        return [], chapter_catalog
+                    
                     _, payload, failed = self._fetch_biquuge_chapter_worker(chapter, index, timeout)
                     if payload:
                         sample_payloads.append(payload)
@@ -1496,6 +1522,15 @@ class UniversalCrawlerV2:
                 for index, chapter in enumerate(chapter_catalog[sample_count:], start=sample_count + 1)
             }
             for future in as_completed(future_map):
+                # Check if stop has been requested
+                if self.is_stop_requested():
+                    logger.info('[crawler] stop requested, halting chapter downloads')
+                    # Cancel remaining futures
+                    for f in future_map:
+                        if not f.done():
+                            f.cancel()
+                    break
+                
                 completed += 1
                 index, chapter = future_map[future]
                 try:
@@ -1738,20 +1773,80 @@ class UniversalCrawlerV2:
             'cache_hits': 0,
         }
 
+    def request_stop(self):
+        """Request the crawler to stop gracefully."""
+        self._stop_requested = True
+        logger.info('[crawler] stop requested')
+
+    def is_stop_requested(self):
+        """Check if stop has been requested."""
+        return self._stop_requested
+
     def close(self):
+        """Close all resources and cleanup."""
+        if getattr(self, '_closed', False):
+            return
+        
+        self._closed = True
+        logger.info(f'[cleanup] closing crawler instance {id(self)}')
+        
+        # Close advanced crawler
         if self.advanced_crawler:
-            self.advanced_crawler.close()
-            self.advanced_crawler = None
+            try:
+                self.advanced_crawler.close()
+                logger.debug('[cleanup] advanced crawler closed')
+            except Exception as e:
+                logger.warning(f'[cleanup] failed to close advanced crawler: {e}')
+            finally:
+                self.advanced_crawler = None
+        
+        # Close main session
         if getattr(self, 'session', None):
-            self.session.close()
+            try:
+                self.session.close()
+                logger.debug('[cleanup] main session closed')
+            except Exception as e:
+                logger.warning(f'[cleanup] failed to close main session: {e}')
+            finally:
+                self.session = None
+        
+        # Clean up thread-local sessions
+        if hasattr(self, '_thread_local'):
+            try:
+                if hasattr(self._thread_local, 'session'):
+                    try:
+                        self._thread_local.session.close()
+                        logger.debug('[cleanup] thread-local session closed')
+                    except Exception as e:
+                        logger.warning(f'[cleanup] failed to close thread-local session: {e}')
+                    delattr(self._thread_local, 'session')
+            except Exception as e:
+                logger.warning(f'[cleanup] failed to cleanup thread-local storage: {e}')
+        
+        # Clear caches and state
+        try:
+            self._primed_domains.clear()
+            logger.debug('[cleanup] cleared primed domains cache')
+        except Exception as e:
+            logger.warning(f'[cleanup] failed to clear caches: {e}')
+        
+        logger.info(f'[cleanup] crawler instance {id(self)} closed successfully')
 
     def __del__(self):
-        self.close()
+        """Destructor to ensure cleanup."""
+        try:
+            if not getattr(self, '_closed', True):
+                logger.warning(f'[cleanup] crawler {id(self)} not explicitly closed, cleaning up in __del__')
+                self.close()
+        except Exception as e:
+            logger.error(f'[cleanup] error in __del__: {e}')
 
     def __enter__(self):
+        """Context manager entry."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
         self.close()
         return False
 

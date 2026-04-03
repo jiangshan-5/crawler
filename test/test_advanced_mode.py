@@ -56,7 +56,7 @@ def test_basic_crawl():
     print("=" * 60)
     
     try:
-        from universal_crawler import UniversalCrawler
+        from universal_crawler_v2 import UniversalCrawlerV2 as UniversalCrawler
         
         crawler = UniversalCrawler(
             base_url='https://example.com',
@@ -88,7 +88,7 @@ def test_advanced_crawl():
     print("=" * 60)
     
     try:
-        from universal_crawler import UniversalCrawler
+        from universal_crawler_v2 import UniversalCrawlerV2 as UniversalCrawler
         from advanced_crawler import is_advanced_mode_available
         
         if not is_advanced_mode_available():

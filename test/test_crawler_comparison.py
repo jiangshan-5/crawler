@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from universal_crawler import UniversalCrawler
+from universal_crawler_v2 import UniversalCrawlerV2 as UniversalCrawler
 from universal_crawler_v2 import UniversalCrawlerV2
 import time
 
