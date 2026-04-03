@@ -73,8 +73,8 @@ config.local.json
 
 # 开发脚本（仅本地使用）
 build_exe.py
-git_update.bat
-run_universal_crawler.bat
+# git_update.bat
+# run_universal_crawler.bat
 .env.example
 git_init.bat
 run_gui.bat
