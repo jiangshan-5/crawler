@@ -1,83 +1,9 @@
 @echo off
-goto __git_update_main_v2
-chcp 65001 >nul
-echo ========================================
-echo    Git 更新推送脚本
-echo ========================================
-echo.
-
-echo [1/4] 查看当前状态...
-git status
-echo.
-
-echo [2/4] 添加所有修改的文件...
-git add .
-echo ✓ 文件添加完成
-echo.
-
-echo [3/4] 请输入提交信息
-set /p COMMIT_MSG="提交信息: "
-
-if "%COMMIT_MSG%"=="" (
-    set COMMIT_MSG=Update: 更新代码
-    echo 使用默认提交信息: %COMMIT_MSG%
-)
-
-git commit -m "%COMMIT_MSG%"
-if errorlevel 1 (
-    echo 警告：没有需要提交的更改
-    pause
-    exit /b 0
-)
-echo ✓ 本地提交完成
-echo.
-
-echo [4/4] 推送到 GitHub...
-git push origin main
-if errorlevel 1 (
-    echo.
-    echo ❌ 推送失败！
-    echo 尝试先拉取远程更新...
-    git pull origin main --rebase
-    if errorlevel 1 (
-        echo.
-        echo ❌ 拉取失败！可能存在冲突，请手动解决。
-        pause
-        exit /b 1
-    )
-    echo 再次推送...
-    git push origin main
-    if errorlevel 1 (
-        echo.
-        echo ❌ 推送仍然失败！请检查：
-        echo 1. 网络连接是否正常
-        echo 2. GitHub 凭据是否正确
-        echo 3. 是否有权限推送到该仓库
-        pause
-        exit /b 1
-    )
-)
-
-echo ✓ 推送成功！
-
-echo.
-echo ========================================
-echo    ✓ 更新完成！
-echo ========================================
-echo.
-echo 你的修改已成功推送到 GitHub
-echo 仓库地址: https://github.com/jiangshan-5/crawler
-echo.
-pause
-
-goto :eof
-
-:__git_update_main_v2
-setlocal
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 
 echo ========================================
-echo   Git Update Helper
+echo   Git Update Helper (Develop Branch)
 echo ========================================
 echo.
 
@@ -88,8 +14,38 @@ if errorlevel 1 (
     exit /b 1
 )
 
+set "TARGET_BRANCH=develop"
+
 for /f "delims=" %%B in ('git branch --show-current 2^>nul') do set "CURRENT_BRANCH=%%B"
 if not defined CURRENT_BRANCH set "CURRENT_BRANCH=main"
+
+echo Current branch: %CURRENT_BRANCH%
+if not "%CURRENT_BRANCH%"=="%TARGET_BRANCH%" (
+    echo.
+    echo Warning: You are on branch '%CURRENT_BRANCH%', but target is '%TARGET_BRANCH%'
+    echo.
+    choice /C YN /M "Do you want to switch to %TARGET_BRANCH% branch"
+    if errorlevel 2 (
+        echo Operation cancelled.
+        pause
+        exit /b 0
+    )
+    echo.
+    echo Switching to %TARGET_BRANCH% branch...
+    git checkout %TARGET_BRANCH%
+    if errorlevel 1 (
+        echo Failed to switch branch. Creating new %TARGET_BRANCH% branch...
+        git checkout -b %TARGET_BRANCH%
+        if errorlevel 1 (
+            echo Failed to create branch.
+            pause
+            exit /b 1
+        )
+    )
+    set "CURRENT_BRANCH=%TARGET_BRANCH%"
+    echo Switched to %TARGET_BRANCH% branch.
+    echo.
+)
 
 echo [1/4] Current status
 git status
@@ -112,17 +68,78 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-:ask_commit_v2
-set "COMMIT_MSG="
-echo [3/4] Enter what changed in this update
-set /p "COMMIT_MSG=Commit message: "
-if not defined COMMIT_MSG (
-    echo Commit message cannot be empty. Please try again.
+:ask_commit
+set "COMMIT_TITLE="
+set "COMMIT_BODY="
+set "LINE_COUNT=0"
+
+echo [3/4] Enter commit message (multi-line supported)
+echo ------------------------------------------------
+echo First line  : Commit title (required)
+echo Other lines : Detailed description (optional)
+echo Type 'END' on a new line to finish, or press Ctrl+C to cancel
+echo ------------------------------------------------
+echo.
+
+set /p "COMMIT_TITLE=Title: "
+if not defined COMMIT_TITLE (
     echo.
-    goto ask_commit_v2
+    echo Error: Commit title cannot be empty. Please try again.
+    echo.
+    goto ask_commit
 )
 
-git commit -m "%COMMIT_MSG%"
+echo.
+echo Enter description (type 'END' to finish):
+echo.
+
+:read_body_line
+set "INPUT_LINE="
+set /p "INPUT_LINE=> "
+
+if /i "!INPUT_LINE!"=="END" goto commit_done
+if /i "!INPUT_LINE!"=="end" goto commit_done
+
+if defined INPUT_LINE (
+    if !LINE_COUNT! EQU 0 (
+        set "COMMIT_BODY=!INPUT_LINE!"
+    ) else (
+        set "COMMIT_BODY=!COMMIT_BODY!
+!INPUT_LINE!"
+    )
+    set /a LINE_COUNT+=1
+)
+
+goto read_body_line
+
+:commit_done
+echo.
+echo ------------------------------------------------
+echo Commit Preview:
+echo ------------------------------------------------
+echo Title: %COMMIT_TITLE%
+if defined COMMIT_BODY (
+    echo.
+    echo Description:
+    echo !COMMIT_BODY!
+)
+echo ------------------------------------------------
+echo.
+
+choice /C YN /M "Confirm this commit message"
+if errorlevel 2 (
+    echo.
+    echo Commit cancelled. Please re-enter.
+    echo.
+    goto ask_commit
+)
+
+if defined COMMIT_BODY (
+    git commit -m "%COMMIT_TITLE%" -m "!COMMIT_BODY!"
+) else (
+    git commit -m "%COMMIT_TITLE%"
+)
+
 if errorlevel 1 (
     echo Commit failed.
     pause
@@ -131,12 +148,12 @@ if errorlevel 1 (
 echo Commit done.
 echo.
 
-echo [4/4] Push to origin/%CURRENT_BRANCH%
-git push origin %CURRENT_BRANCH%
+echo [4/4] Push to origin/%TARGET_BRANCH%
+git push origin %TARGET_BRANCH%
 if errorlevel 1 (
     echo.
     echo Push failed. Try pull --rebase first...
-    git pull origin %CURRENT_BRANCH% --rebase
+    git pull origin %TARGET_BRANCH% --rebase
     if errorlevel 1 (
         echo.
         echo Pull --rebase failed. Please resolve conflicts manually.
@@ -144,7 +161,7 @@ if errorlevel 1 (
         exit /b 1
     )
     echo Retry push...
-    git push origin %CURRENT_BRANCH%
+    git push origin %TARGET_BRANCH%
     if errorlevel 1 (
         echo.
         echo Push still failed. Please check network, permissions, or conflicts.
@@ -157,8 +174,11 @@ echo.
 echo ========================================
 echo   Done
 echo ========================================
-echo Branch : %CURRENT_BRANCH%
-echo Message: %COMMIT_MSG%
+echo Branch : %TARGET_BRANCH%
+echo Title  : %COMMIT_TITLE%
+if defined COMMIT_BODY (
+    echo Body   : !COMMIT_BODY!
+)
 echo.
 pause
 endlocal
