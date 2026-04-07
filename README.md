@@ -4,9 +4,39 @@
 
 **🎯 快速模板功能！** 内置常见网站模板，一键应用配置，10秒开始爬取！
 
-![Version](https://img.shields.io/badge/version-2.1.1-blue)
+![Version](https://img.shields.io/badge/version-2.1.2-blue)
 ![Python](https://img.shields.io/badge/python-3.6+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
+![Status](https://img.shields.io/badge/status-stable-success)
+
+---
+
+## 🎉 最近更新 (2026-04-03)
+
+### v2.1.2 - 稳定性和用户体验优化
+
+**🆕 新功能**
+- ⏹️ **停止控制** - 支持随时停止爬取，响应时间 1-30 秒
+- 📊 **停止进度反馈** - 详细的 3 步停止流程日志，让用户了解停止状态
+
+**🔧 优化改进**
+- 🧹 **资源清理优化** - 防止重复清理，自动释放所有资源（浏览器、连接、缓存）
+- 🚀 **停止机制增强** - 在关键循环中添加停止检查点（多页爬取、图片下载、小说章节）
+- 🔌 **连接错误处理** - 优雅处理浏览器关闭时的连接错误
+
+**🐛 Bug 修复**
+- ✅ 修复停止按钮无响应问题
+- ✅ 修复 Lambda 闭包导致的 NameError
+- ✅ 修复资源泄漏问题
+
+**📚 文档更新**
+- 📁 创建 `docs/optimization_history/` 文件夹存放所有优化文档
+- 📝 添加详细的优化历史索引和文档模板
+- 🔗 更新 README 添加优化历史链接
+
+查看详细信息: [优化历史文档](docs/optimization_history/README.md)
+
+---
 
 ---
 
@@ -23,6 +53,8 @@
 - 🎯 **多源图标爬取** - 内置多个图标网站爬虫（Feather Icons、Heroicons 等）
 - 🔄 **智能降级** - 高级模式不可用时自动切换到标准模式
 - 🚀 **一键自动安装** - 高级模式依赖自动安装，无需手动配置
+- ⏹️ **停止控制** - 支持随时停止爬取，响应迅速（1-30秒）
+- 🧹 **资源管理** - 自动清理资源，防止内存泄漏
 
 ## 📸 界面预览
 
@@ -75,7 +107,7 @@ pip install undetected-chromedriver
 
 **方式 1：Python 直接运行**
 ```bash
-python src/universal_crawler_gui.py
+python src/universal_crawler_gui_modern.py
 ```
 
 **方式 2：使用批处理文件 (Windows)**
@@ -186,7 +218,8 @@ run_universal_crawler.bat
 ## 📚 文档
 
 **📖 [完整文档索引](docs/文档索引.md)** - 查看所有文档  
-**📝 [更新日志](docs/CHANGELOG.md)** - 查看版本历史
+**📝 [更新日志](docs/CHANGELOG.md)** - 查看版本历史  
+**🔧 [优化历史](docs/optimization_history/README.md)** - 查看所有优化和修复记录 ⭐
 
 ### 快速开始
 - [快速模板使用说明](docs/快速模板使用说明.md) ⭐ 推荐
@@ -210,6 +243,13 @@ run_universal_crawler.bat
 - [模板修复说明](docs/模板修复说明_Flaticon.md)
 - [实现完成总结](docs/实现完成总结.md)
 
+### 优化历史 🆕
+- [优化历史索引](docs/optimization_history/README.md) - 所有优化和修复的详细记录
+- [资源清理优化](docs/optimization_history/RESOURCE_CLEANUP_OPTIMIZATION.md)
+- [停止按钮修复](docs/optimization_history/STOP_BUTTON_FIX.md)
+- [Lambda 闭包修复](docs/optimization_history/LAMBDA_CLOSURE_FIX.md)
+- [停止机制增强](docs/optimization_history/STOP_MECHANISM_ENHANCEMENT.md)
+
 ### 升级说明
 - [升级完成](docs/升级完成.md)
 - [新功能通知](docs/新功能通知.txt)
@@ -219,14 +259,20 @@ run_universal_crawler.bat
 ```
 crawler/
 ├── src/                          # 源代码目录
-│   ├── universal_crawler.py      # 通用爬虫核心模块（支持高级模式）
-│   ├── universal_crawler_gui.py  # GUI 界面（美化版 + 高级模式 + 快速模板）
+│   ├── universal_crawler_v2.py   # 通用爬虫核心模块 V2（优化版）
+│   ├── universal_crawler_gui_modern.py  # GUI 界面（现代版 + 停止控制）
 │   ├── advanced_crawler.py       # 高级爬虫模块（反反爬虫）
 │   ├── website_templates.py      # 网站模板配置
 │   ├── multi_source_icon_crawler.py  # 多源图标爬虫
 │   ├── apply_icons_to_miniapp.py # 图标应用工具
 │   └── ...                       # 其他工具脚本
 ├── docs/                         # 文档目录
+│   ├── optimization_history/     # 优化历史文档 🆕
+│   │   ├── README.md            # 优化历史索引
+│   │   ├── RESOURCE_CLEANUP_OPTIMIZATION.md
+│   │   ├── STOP_BUTTON_FIX.md
+│   │   ├── LAMBDA_CLOSURE_FIX.md
+│   │   └── STOP_MECHANISM_ENHANCEMENT.md
 │   ├── 快速模板使用说明.md       # 模板功能说明 ⭐
 │   ├── 高级模式使用指南.md       # 高级模式详细说明
 │   ├── 反反爬虫技术研究与升级方案.md  # 技术研究文档
@@ -242,12 +288,14 @@ crawler/
 
 ## 🎯 功能模块
 
-### 1. 通用爬虫 (universal_crawler.py)
+### 1. 通用爬虫 V2 (universal_crawler_v2.py)
 - 支持列表页面和单页面爬取
 - 自定义 CSS 选择器
 - 支持属性提取（@href、@src 等）
 - 统计信息输出
 - 支持高级模式切换
+- **停止控制** - 支持随时停止爬取 🆕
+- **资源管理** - 自动清理资源，防止内存泄漏 🆕
 
 ### 2. 高级爬虫 (advanced_crawler.py)
 - 使用 undetected-chromedriver 绕过反爬虫
@@ -255,14 +303,17 @@ crawler/
 - 模拟真实浏览器行为
 - 自动处理页面加载和等待
 - 支持无头模式（headless）
+- **连接错误处理** - 优雅处理浏览器关闭时的连接错误 🆕
 
-### 3. GUI 界面 (universal_crawler_gui.py)
+### 3. GUI 界面 (universal_crawler_gui_modern.py)
 - 现代化蓝色主题
 - 响应式布局设计
 - 实时日志输出
 - 数据预览功能
 - 高级模式开关和状态提示
 - 快速模板功能
+- **停止按钮** - 支持随时停止爬取，提供详细的停止进度反馈 🆕
+- **Lambda 闭包修复** - 修复了回调函数的变量作用域问题 🆕
 
 ### 4. 网站模板 (website_templates.py)
 - 预配置常见网站选择器
@@ -407,21 +458,42 @@ with AdvancedCrawler(headless=True) as crawler:
 - 查看错误日志定位问题
 - 运行 `python test_advanced_mode.py` 测试
 
+### 6. 停止按钮无响应 🆕
+- 停止需要等待当前操作完成（1-30秒）
+- 如果正在等待网络响应，需要等待超时
+- 查看日志了解停止进度
+- 详见 [停止按钮修复文档](docs/optimization_history/STOP_BUTTON_FIX.md)
+
+### 7. Lambda 闭包错误 🆕
+- 已修复 NameError 相关的闭包问题
+- 如遇到类似问题，请查看 [Lambda 闭包修复文档](docs/optimization_history/LAMBDA_CLOSURE_FIX.md)
+
 ## 📝 开发计划
 
-- [x] 支持 JavaScript 渲染页面（高级模式）✅
-- [x] 绕过反爬虫系统（高级模式）✅
-- [x] 快速模板功能 ✅
-- [x] 一键自动安装依赖 ✅
+### 已完成 ✅
+- [x] 支持 JavaScript 渲染页面（高级模式）
+- [x] 绕过反爬虫系统（高级模式）
+- [x] 快速模板功能
+- [x] 一键自动安装依赖
+- [x] 停止控制功能（2026-04-03）
+- [x] 资源清理优化（2026-04-03）
+- [x] Lambda 闭包修复（2026-04-03）
+- [x] 停止机制增强（2026-04-03）
+
+### 进行中 🚧
 - [ ] 支持更多导出格式（Excel、XML）
 - [ ] 添加代理支持
 - [ ] 添加定时任务功能
+
+### 计划中 📋
 - [ ] 支持数据库存储
 - [ ] 添加深色模式
 - [ ] 支持自定义主题
 - [ ] 智能检测（自动切换高级模式）
 - [ ] 验证码识别
 - [ ] 更多网站模板
+- [ ] 断点续爬功能
+- [ ] 爬取进度保存
 
 ## 🤝 贡献
 

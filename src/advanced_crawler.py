@@ -646,8 +646,14 @@ class AdvancedCrawler:
         try:
             driver.quit()
             logger.info(f"[advanced] browser engine closed ({self.engine_name})")
+        except ConnectionResetError as e:
+            logger.warning(f"[advanced] browser connection reset during close (expected): {e}")
         except Exception as e:
-            logger.error(f"[advanced] browser close failed: {e}")
+            error_msg = str(e).lower()
+            if any(msg in error_msg for msg in ['connection', 'refused', 'reset', 'broken pipe', '10054', '10061']):
+                logger.warning(f"[advanced] browser close connection error (expected): {e}")
+            else:
+                logger.error(f"[advanced] browser close failed: {e}")
 
     def __enter__(self):
         self.start()
