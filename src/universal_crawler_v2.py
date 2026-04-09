@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import csv
@@ -19,9 +19,14 @@ import requests
 from bs4 import BeautifulSoup
 
 try:
-    from .advanced_crawler import AdvancedCrawler, is_advanced_mode_available
-except ImportError:
-    from advanced_crawler import AdvancedCrawler, is_advanced_mode_available
+    try:
+        from .advanced_crawler import AdvancedCrawler, is_advanced_mode_available
+    except ImportError:
+        from advanced_crawler import AdvancedCrawler, is_advanced_mode_available
+except (ImportError, Exception) as e:
+    logger.warning(f"Advanced crawler components could not be loaded: {e}")
+    AdvancedCrawler = None
+    def is_advanced_mode_available(): return False
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -75,6 +80,7 @@ class UniversalCrawlerV2:
         max_retries=3,
         enable_cache=False,
         advanced_user_data_dir=None,
+        is_flaticon_task=False
     ):
         self._closed = False
         self._stop_requested = False
@@ -84,6 +90,7 @@ class UniversalCrawlerV2:
         self.max_retries = max_retries
         self.enable_cache = enable_cache
         self.advanced_user_data_dir = advanced_user_data_dir
+        self.is_flaticon_task = is_flaticon_task
         self.advanced_crawler = None
         self._advanced_runtime_disabled_reason = ''
         self._browser_bootstrap_disabled_reason = ''
@@ -117,8 +124,9 @@ class UniversalCrawlerV2:
                 self.use_advanced_mode = False
             else:
                 logger.info('advanced mode enabled')
+                is_headed = self._prefer_headed_advanced(self.base_url) or self.is_flaticon_task
                 self.advanced_crawler = AdvancedCrawler(
-                    headless=not self._prefer_headed_advanced(self.base_url),
+                    headless=not is_headed,
                     user_data_dir=self.advanced_user_data_dir,
                 )
 
@@ -160,7 +168,13 @@ class UniversalCrawlerV2:
         )
 
     def _prefer_headed_advanced(self, url):
-        return bool(url and 'flaticon.com' in url)
+        # Always use headed mode for Flaticon to bypass headless detection
+        if self._is_flaticon_url(url):
+            return True
+        # Also check if it's a keyword search intended for flaticon
+        if getattr(self, "base_url", "") == "https://www.flaticon.com/":
+            return True
+        return False
 
     def _is_flaticon_url(self, url):
         return bool(url and 'flaticon.com' in url)
@@ -175,9 +189,10 @@ class UniversalCrawlerV2:
                     'Sec-Fetch-Site': 'same-origin',
                     'Sec-Fetch-Mode': 'navigate',
                     'Sec-Fetch-Dest': 'document',
+                    'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="120", "Chromium";v="120"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"Windows"',
                     'Upgrade-Insecure-Requests': '1',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache',
                 }
             )
         elif self._is_biquuge_url(url):
@@ -1611,8 +1626,13 @@ class UniversalCrawlerV2:
             return None
 
         book_meta = self._extract_biquuge_book_meta(detail_soup, book_url)
+        # Ensure we have a title for the filename
         if not book_meta.get('book_title'):
-            book_meta['book_title'] = target.get('title') or (keyword_or_url if not self.validator.validate_url(keyword_or_url) else '')
+            # Fallback to target title or query
+            book_meta['book_title'] = target.get('title') or (keyword_or_url if not self.validator.validate_url(keyword_or_url) else "Unknown_Book")
+        
+        # Strip illegal characters from title for safe naming
+        book_meta['book_title'] = self._sanitize_filename(book_meta['book_title'])
 
         directory_seed = book_meta.get('directory_url') or book_url
         catalog = self._resolve_biquuge_directory_catalog(directory_seed, timeout=timeout)
