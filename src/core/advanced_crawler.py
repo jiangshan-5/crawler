@@ -224,10 +224,11 @@ class AdvancedCrawler:
     _shared_pool = {}
     _atexit_registered = False
 
-    def __init__(self, headless=True, user_data_dir=None, reuse_browser=True):
+    def __init__(self, headless=True, user_data_dir=None, reuse_browser=True, wait_time=3):
         self.driver = None
         self.headless = headless
         self.reuse_browser = reuse_browser
+        self.wait_time = wait_time
         self.engine_name = "auto"
         self.user_data_dir = _build_profile_dir(user_data_dir, headless)
         self._shared_key = (bool(self.headless), os.path.abspath(self.user_data_dir))
@@ -513,15 +514,22 @@ class AdvancedCrawler:
             logger.error(f"[advanced] startup failed, elapsed={elapsed:.2f}s: {e}")
             raise
 
-    def fetch_page(self, url, wait_time=3, timeout=30):
+    def fetch_page(self, url, wait_time=None, timeout=30, force_refresh=False):
+        if wait_time is None:
+            wait_time = self.wait_time
+        
         if not self.driver:
             self.start()
 
         try:
             begin_ts = time.time()
-            logger.info(f"[advanced] fetch start -> {url}")
-            effective_timeout = max(timeout, 20) if "flaticon.com" in url else timeout
-            self._safe_get(url, effective_timeout, context="navigation")
+            if force_refresh:
+                logger.info(f"[advanced] force refresh requested for {url}")
+                self.driver.refresh()
+            else:
+                logger.info(f"[advanced] fetch start -> {url}")
+                effective_timeout = max(timeout, 20) if "flaticon.com" in url else timeout
+                self._safe_get(url, effective_timeout, context="navigation")
 
             logger.info(f"[advanced] wait JS render {wait_time}s")
             time.sleep(wait_time)
