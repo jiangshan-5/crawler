@@ -40,9 +40,9 @@ echo Using interpreter: %PY_LABEL%
 echo Starting GUI...
 echo.
 if "%PY_KIND%"=="exe" (
-    call "%PY_CMD%" src\universal_crawler_gui.py
+    call "%PY_CMD%" src\main.py
 ) else (
-    call %PY_CMD% src\universal_crawler_gui.py
+    call %PY_CMD% src\main.py
 )
 set "EXIT_CODE=%errorlevel%"
 

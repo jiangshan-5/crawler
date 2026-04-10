@@ -1,40 +1,32 @@
-# 🕷️ 通用网页爬虫工具
+# 🕷️ 蜘蛛工作台 (Spider Workbench)
 
-一个功能强大、界面美观的通用网页爬虫工具，支持自定义 URL、CSS 选择器、爬取数量等配置。
+一个功能强大、具有现代 SaaS 风格的通用网页爬虫与数据提取工作台。
 
-**🎯 快速模板功能！** 内置常见网站模板，一键应用配置，10秒开始爬取！
+**🎯 智能关键词工作流！** 除了传统的 URL 爬取，现在支持直接输入“书名”或“图标关键词”，系统自动完成搜索与深度抓取。
 
-![Version](https://img.shields.io/badge/version-2.1.2-blue)
-![Python](https://img.shields.io/badge/python-3.6+-green)
+![Version](https://img.shields.io/badge/version-2.2.0-blue)
+![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
-![Status](https://img.shields.io/badge/status-stable-success)
+![Status](https://img.shields.io/badge/status-active-success)
 
 ---
 
-## 🎉 最近更新 (2026-04-03)
+## 🎉 最近更新 (2026-04-09)
 
-### v2.1.2 - 稳定性和用户体验优化
+### v2.2.0 - SaaS 现代化重构与特种工作流
 
-**🆕 新功能**
-- ⏹️ **停止控制** - 支持随时停止爬取，响应时间 1-30 秒
-- 📊 **停止进度反馈** - 详细的 3 步停止流程日志，让用户了解停止状态
+**🎨 UI/UX 革命**
+- 🌟 **Modern Light 主题**：引入 Slate & Modern Blue 配色体系，视觉更轻盈专业。
+- 🖼️ **资产集成**：使用爬虫自抓取的图标库美化了侧边栏和操作按钮。
+- 📊 **交互式仪表盘**：重构了数据卡片和实时追踪逻辑。
 
-**🔧 优化改进**
-- 🧹 **资源清理优化** - 防止重复清理，自动释放所有资源（浏览器、连接、缓存）
-- 🚀 **停止机制增强** - 在关键循环中添加停止检查点（多页爬取、图片下载、小说章节）
-- 🔌 **连接错误处理** - 优雅处理浏览器关闭时的连接错误
+**🚀 特种抓取工作流**
+- 📚 **笔趣阁全本模式**：输入书名即可自动完成“搜索 -> 匹配 -> 目录解析 -> 并发章节下载 -> TXT 导出”。
+- 🔍 **Flaticon 搜索模式**：支持关键词直接搜索图标。
 
-**🐛 Bug 修复**
-- ✅ 修复停止按钮无响应问题
-- ✅ 修复 Lambda 闭包导致的 NameError
-- ✅ 修复资源泄漏问题
-
-**📚 文档更新**
-- 📁 创建 `docs/optimization_history/` 文件夹存放所有优化文档
-- 📝 添加详细的优化历史索引和文档模板
-- 🔗 更新 README 添加优化历史链接
-
-查看详细信息: [优化历史文档](docs/optimization_history/README.md)
+**🛡️ 反爬能力升级**
+- 🕵️ **强制有头模式**：针对 Flaticon 等高保护网站，自动切换到可见浏览器窗口以绕过 CDN 级指纹检测。
+- ⚡ **混合并发策略**：小说章节抓取采用多线程混合请求，极大缩短等待时间。
 
 ---
 
@@ -103,11 +95,9 @@ pip install undetected-chromedriver
 
 > 高级模式可以绕过Cloudflare、DataDome等反爬虫系统，支持JavaScript动态渲染
 
-### 运行程序
-
-**方式 1：Python 直接运行**
+**启动程序**
 ```bash
-python src/universal_crawler_gui_modern.py
+python src/universal_crawler_gui.py
 ```
 
 **方式 2：使用批处理文件 (Windows)**
@@ -259,13 +249,11 @@ run_universal_crawler.bat
 ```
 crawler/
 ├── src/                          # 源代码目录
-│   ├── universal_crawler_v2.py   # 通用爬虫核心模块 V2（优化版）
-│   ├── universal_crawler_gui_modern.py  # GUI 界面（现代版 + 停止控制）
-│   ├── advanced_crawler.py       # 高级爬虫模块（反反爬虫）
-│   ├── website_templates.py      # 网站模板配置
-│   ├── multi_source_icon_crawler.py  # 多源图标爬虫
-│   ├── apply_icons_to_miniapp.py # 图标应用工具
-│   └── ...                       # 其他工具脚本
+│   ├── universal_crawler_v2.py   # 爬虫核心 V2（支持工作流、并发抓取）
+│   ├── universal_crawler_gui.py  # 主程序入口（SaaS 仪表盘）
+│   ├── app_icon_setup.py         # 图标自动抓取维护工具
+│   ├── website_templates.py      # 网站模板配置（支持 Workflow 定义）
+│   ├── assets/                   # 应用视觉资产（抓取的图标等）
 ├── docs/                         # 文档目录
 │   ├── optimization_history/     # 优化历史文档 🆕
 │   │   ├── README.md            # 优化历史索引
